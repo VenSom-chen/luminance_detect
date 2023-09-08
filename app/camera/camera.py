@@ -145,7 +145,7 @@ class Camera:
     # 关闭相机
     def close_camera(self):
         if not self.is_open:
-            print('相机未打开：')
+            print('相机未打开')
             return
         self.cam_work.close_camera()
         # self.g_bExit = True
@@ -169,6 +169,7 @@ class Camera:
         del self.current_cam
         del self.cam_work
         self.is_open = False
+        print('相机已关闭')
         return
 
     # 获取设备信息
