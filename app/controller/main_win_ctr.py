@@ -1,4 +1,3 @@
-import traceback
 from threading import Thread
 
 import numpy as np
@@ -88,10 +87,7 @@ class MainWinController(QObject):
     def work_thread(self,data, size_info):
         image = np.frombuffer(data, dtype=np.int16)
         image = image.reshape(size_info.nHeight, size_info.nWidth)  # 根据自己分辨率进行转化
-        try:
-            image, lumi_avg = detect_circle.detect(image)  # 亮度计算
-        except Exception:
-            traceback.print_exc()
+        image, lumi_avg = detect_circle.detect(image)  # 亮度计算
         self.vedio_actted.emit(image)
 
 
