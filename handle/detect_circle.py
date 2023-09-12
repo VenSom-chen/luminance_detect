@@ -1,68 +1,50 @@
-import cv2
+import cv2 as cv
 import numpy as np
+from PyQt5.QtWidgets import QMessageBox
 
 
-def circle_detect_gray(img_gray, rect, r=150):
+def circle_detect_gray(img_gray, circle, r=150):
     '''获取平均亮度'''
     # rect:x1,y1,x2,y2
-    centry_x = rect[0]+int((rect[2] - rect[0]) / 2)
-    centry_y = rect[1]+int((rect[3] - rect[1]) / 2)
     all_value = []
-    for x in range(centry_x - 150, centry_x + 150):
-        y = centry_y
+    for x in range(circle[0] - r, circle[0] +r):
+        y = circle[1]
         while True:
-            length = (x - centry_x) * (x - centry_x) + (y - centry_y) * (y - centry_y)
+            length = (x - circle[0]) * (x - circle[0]) + (y - circle[1]) * (y - circle[1])
             if length <= r * r:
-                if y - centry_y == 0:
+                if y - circle[1] == 0:
                     # 直径上
                     all_value.append(img_gray[y][x])
                 else:
                     # 不在直径上
                     all_value.append(img_gray[y][x])
-                    all_value.append(img_gray[2 * centry_y - y][x])
+                    all_value.append(img_gray[2 * circle[1] - y][x])
             else:
                 break
             y = y + 1
-    lumi_avg = np.around(np.array(all_value).mean(),2)
-    img_gray = cv2.circle(img_gray, (centry_x, centry_y), r, (0, 0, 0), 10)
-    img_gray = cv2.putText(img_gray, "Average:" + str(lumi_avg),
-                           (centry_x + r + 200, centry_y),
-                           cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 8)
+    lumi_avg = format(np.array(all_value).mean(),'.2f')
+    img_gray = cv.circle(img_gray, (circle[0], circle[1]), r, (0, 0, 0), 10)
+    img_gray = cv.putText(img_gray, "Average:" + lumi_avg,
+                           (circle[0] + r + 200, circle[1]),
+                           cv.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 8)
     return img_gray, lumi_avg
 
 
-def get_rect(img):
+def get_circle_center(img):
     '''绘制图像矩形，参数为单通道'''
-    h, w = img.shape
-    x1 = 0
-    y1 = 0
-    x2 = w - 1
-    y2 = h - 1
-    y = int(h / 2) - 1
-    x = int(w / 2) - 1
-    while img[y][x1] < 200:
-        x1 = x1 + 1
-    while img[y][x2] < 200:
-        x2 = x2 - 1
-    while img[y1][x] < 200:
-        y1 = y1 + 1
-    while img[y2][x] < 200:
-        y2 = y2 - 1
-    return [x1, y1, x2, y2]
-
-
-# def get_centre_array(rect):
-#     '''获得矩形范围内的九个圆心'''
-#     dx = (rect[2] - rect[0])
-#     dy = (rect[3] - rect[1])
-#     central_array = np.zeros((1, 2), dtype=int)
-#     central_array[0][0] = dx / 2 + rect[0]  # 横坐标
-#     central_array[0][1] = dy / 2 + rect[1]  # 纵坐标
-#     return central_array
-
+    img = cv.normalize(img, dst=None, alpha=0, beta=65535,
+                       norm_type=cv.NORM_MINMAX)
+    gray = cv.convertScaleAbs(img, alpha=(255.0 / 65535.0))
+    circles = cv.HoughCircles(gray, cv.HOUGH_GRADIENT, 1, 500, param1=100, param2=70, minRadius=200, maxRadius=300)
+    if circles is None:
+        mox = QMessageBox.critical(None,'错误','当前图像没有绘制检测圆')
+        print(mox)
+    # circle由 圆心坐标 和 半径 组成
+    circle = circles[0][0]
+    cv.circle(img, (int(circle[0]), int(circle[1])), int(circle[2]), (0, 0, 255), 10)
+    return circle
 
 def detect(img):
     '''包裹函数'''
-    rect = get_rect(img)
-    # central = get_centre_array(rect)
+    rect = get_circle_center(img)
     return circle_detect_gray(img, rect)
