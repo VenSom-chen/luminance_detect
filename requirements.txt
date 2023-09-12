@@ -1,0 +1,6 @@
+matplotlib==3.5.3
+numpy==1.21.6
+PyQt5==5.15.9
+opencv_contrib_python==4.6.0.66
+pyserial==3.5
+ruamel.yaml==0.17.32
