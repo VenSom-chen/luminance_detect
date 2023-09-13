@@ -156,7 +156,7 @@ class CameraManagerWork(QObject):
                 self.devices_closed.emit(device)
 
         self.usable_camera.clear()
-        self.usable_camera = self.camera.camera_list
+        self.usable_camera = current_cameras
         self.devices_changed.emit(self.camera.camera_list)
 
     # 抓取图像
@@ -170,7 +170,7 @@ class CameraManagerWork(QObject):
                                                                                   stFrameInfo, 1000)
         if ret == 0:
             if assignment is not None:
-                assignment(device_name, self.data_buf)
+                assignment(device_name, self.data_buf, stFrameInfo)
 
     # 设置当前相机
     def set_current_camera(self, device_name):

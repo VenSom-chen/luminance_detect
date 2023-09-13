@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 import sys
 
+from app.util.singleton import Singleton
 
 sys.path.append("app/driver/camera/HKCamera/MvImport")
-from driver.MvCameraControl_class import *
+from app.camera.driver.MvCameraControl_class import *
 
 
 class Camera:
@@ -103,6 +104,12 @@ class Camera:
                 # print("Warning: Get Packet Size fail! ret[0x%x]" % nPacketSize)
                 print("报文大小获取失败 ! ret[0x%x]" % nPacketSize)
 
+                # 设置像素模式：
+
+        ret = self.cam_dic[device_name]['camera'].MV_CC_SetEnumValue('PixelFormat', PixelType_Gvsp_Mono12)
+        if ret != 0:
+            # print("get payload size fail! ret[0x%x]" % ret)
+            raise Exception("无法设置为mono12的像素格式 !ret[0x%x]" % ret)
         # ch:设置触发模式为off | en:Set trigger mode as off
         ret = self.cam_dic[device_name]['camera'].MV_CC_SetEnumValue("TriggerMode", MV_TRIGGER_MODE_OFF)
         if ret != 0:
@@ -113,13 +120,13 @@ class Camera:
         stParam = MVCC_INTVALUE()
         memset(byref(stParam), 0, sizeof(MVCC_INTVALUE))
 
+
         ret = self.cam_dic[device_name]['camera'].MV_CC_GetIntValue("PayloadSize", stParam)
         if ret != 0:
             # print("get payload size fail! ret[0x%x]" % ret)
             raise Exception("获取有效负载大小失败 ! ret[0x%x]" % ret)
             # sys.exit()
         self.nPayloadSize = stParam.nCurValue
-
         # 设置曝光时间
         try:
             ret = self.cam_dic[device_name]['camera'].MV_CC_SetFloatValue("ExposureTime",
@@ -130,6 +137,8 @@ class Camera:
                 # sys.exit()
         except:
             raise Exception("未设置曝光时间 ! ret[0x%x]" % ret)
+
+
 
         # ch:开始取流 | en:Start grab image
         ret = self.cam_dic[device_name]['camera'].MV_CC_StartGrabbing()

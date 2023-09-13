@@ -2,6 +2,7 @@ import numpy as np
 import openpyxl
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
 
+from app.controller.common.mbox import MessageBox
 from app.controller.common.rawpix import RawPix
 from app.controller.thread.camera_manager import CameraManager
 from app.gui.main_win import main_window
@@ -11,21 +12,34 @@ from handle import detect_circle
 class MainWinController(QObject):
     video_acted = pyqtSignal(object)
     show_value = pyqtSignal()
+    auto_stopped = pyqtSignal()
 
     def __init__(self):
         super(MainWinController, self).__init__()
+        # ui声明
+        self.mw = main_window()  # 主界面
+        self.mbox = MessageBox(self.mw)  # 消息弹窗
+        # 变量声明
+        self.cam = CameraManager.instance()# 相机实例
         self.current_device = None  # 当前设备
         self.is_handling = False  # 相机正在打开时控制提示
-        self.time = 100
-        self.current_luminance = None
-        self.col = 0
-        self.is_camera_open = False
-        self.mw = main_window()
-        self.cam = CameraManager()
-        self.init_ui()
+        # 数据处理
+        self.workbook = openpyxl.Workbook()
+        self.worksheet = self.workbook.active
+        self.value_in_col = []
+        self.auto_started = None
+        self.workbook = None
+        self.worksheet = None
+        self.col = 1# 列的初始值
+        self.row = 1# 行的初始值
+        self.file_path = '../output/luminance_avg.xlsx'
+        self.time = 100  # 自动检测次数
         self.values = []
-        self.current_image = None
-        self.video_acted.connect(lambda image: self.video_show(image), Qt.QueuedConnection)
+        self.current_luminance = None
+        self.init_ui()
+        self.init_camera()
+        self.video_acted.connect(self.video_show, Qt.QueuedConnection)
+        self.auto_stopped.connect(self.refresh_ui)
 
     # 初始化ui
     def init_ui(self):
@@ -38,6 +52,13 @@ class MainWinController(QObject):
         self.mw.auto_star.clicked.connect(self.auto_detect)
         self.mw.time_set.textChanged.connect(self.set_time)
 
+    # 初始化相机
+    def init_camera(self):
+        self.cam.camera_opened_connect(self.camera_opened)
+        self.cam.camera_closed_connect(self.camera_closed)
+        self.cam.exception_handle_connect(self.exception_handle)
+        self.cam.devices_changed_connect(self.combox_refreshed)
+
     def set_time(self):
         self.time = int(self.mw.time_set.text())
 
@@ -47,15 +68,13 @@ class MainWinController(QObject):
     # 打开相机
     def open_camera(self):
         if self.is_handling:
-            # TODO:异常的弹框和处理
-            print('请勿多次操作')
+            self.mbox.warn("警告","请勿操作过快")
             return
         self.is_handling = True
         device_name = self.mw.cam_combox.currentText()
-        exposure_time = 80000
+        exposure_time = "80000"
         if len(device_name) == 0:
-            # TODO:异常的弹框和处理
-            print('未发现相机')
+            self.mbox.info("提示","未发现相机")
             self.is_handling = False
             return
         self.cam.open_camera(exposure_time, device_name, work=self.work_thread)
@@ -70,7 +89,7 @@ class MainWinController(QObject):
     def close_camera(self):
         if self.is_handling:
             # TODO:异常的弹框和处理
-            print('请勿多次操作')
+            print('请勿操作过快')
             return
         self.is_handling = True
         self.cam.close_camera(self.current_device)
@@ -84,35 +103,63 @@ class MainWinController(QObject):
         self.mw.auto_star.setDisabled(True)
 
     def refresh_combox(self):
-        self.cam.refresh_devices()
+        camera_list = self.cam.refresh_devices()
         self.mw.cam_combox.clear()
-        self.mw.cam_combox.addItems(self.cam.get_devices_list())
+        self.mw.cam_combox.addItems(camera_list)
 
     def auto_detect(self):
-        workbook = openpyxl.Workbook()
-        worksheet = workbook.sheetnames  # 取第一张表
-        worktable = workbook[worksheet[0]]  # 获取第一列
-        # rows = worktable.max_row  # 获得行数
-        rows = 0  # 获得行数
-        for atime in range(0, self.time):
-            self.cam.grab_picture(self.current_device, self.work)
-            worktable.cell(rows + 1, 1).value = self.current_luminance
-            rows = rows + 1
-        workbook.save('../output/luminance_avg.xlsx')  # 将新数据追加进excel表中
-        workbook.close()
-        self.mw.blur_value.setText(str(np.around(np.mean(self.values), 2)))
+        if self.is_handling:
+            self.mbox.warn("警告","请勿操作过快")
+            return
+        self.is_handling = True
+        self.auto_started = True
+        self.mw.auto_star.setDisabled(True)
 
-    def work(self, data_buf, size_info):
-        # ch:亮度检测 | en:Detect luminance
-        img = np.frombuffer(data_buf, dtype=np.int16)
-        img = img.reshape(size_info.nHeight, size_info.nWidth)
-        img, luminance_avg = detect_circle.detect(img)  # 亮度计算
-        # self.values.append(round(luminance_avg, 2))
-        self.current_luminance = luminance_avg
-        self.values.append(luminance_avg)
-
-    def work_thread(self, data, size_info):
-        image = np.frombuffer(data, dtype=np.int16)
+    # 相机工作
+    def work_thread(self, device_name, data, size_info):
+        image = np.frombuffer(data,dtype=np.uint16)  # 将c_ubyte_Array转化成ndarray得到（3686400，）
         image = image.reshape(size_info.nHeight, size_info.nWidth)  # 根据自己分辨率进行转化
-        image, lumi_avg = detect_circle.detect(image)  # 亮度计算
+        try:
+            image, lumi_avg = detect_circle.detect(image)  # 亮度计算
+        except Exception as e:
+            print(e)
+            self.video_acted.emit(image)
+            return
         self.video_acted.emit(image)
+        # 如果自动操作模式打开则记录数据
+        if not self.auto_started:
+            return
+        if self.row<=100:
+            self.worksheet.cell(row=self.row,column=self.col,value=lumi_avg)
+            self.value_in_col.append(lumi_avg)
+            self.row += 1
+            return
+        # 写100个数据后
+        # 写入平均值
+        self.self.worksheet.cell(row=self.row+1,column=self.col,value=np.around(np.array(self.value_in_col).mean(),2))
+        # 写入方差
+        self.self.worksheet.cell(row=self.row+2,column=self.col,value=np.around(np.array(self.value_in_col).var(),2))
+        # 还原
+        self.workbook.save(self.file_path)
+        self.value_in_col.clear()
+        self.row = 1
+        self.col += 1
+        self.auto_started = False
+        self.auto_stopped.emit()
+
+    def refresh_ui(self):
+        self.mw.auto_star.setDisabled(False)
+        self.is_handling = False
+
+
+
+
+    # 相机列表跟新槽函数
+    def combox_refreshed(self, camera_list):
+        self.mw.cam_combox.clear()
+        self.mw.cam_combox.addItems(camera_list)
+
+    def exception_handle(self, e):
+        self.is_handling = False
+        self.mw.cam_combox.setDisabled(False)
+        self.mbox.error('错误', str(e))
