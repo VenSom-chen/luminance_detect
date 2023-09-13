@@ -2,7 +2,7 @@ import threading
 
 from PyQt5.QtWidgets import QMainWindow
 
-from gui.ui.win import Ui_MainWindow
+from app.gui.ui.win import Ui_MainWindow
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
