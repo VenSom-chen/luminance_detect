@@ -1,6 +1,7 @@
 import numpy as np
 import openpyxl
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
+from PyQt5.QtGui import QIntValidator
 
 from app.controller.common.mbox import MessageBox
 from app.controller.common.rawpix import RawPix
@@ -12,7 +13,7 @@ from handle import detect_circle
 class MainWinController(QObject):
     video_acted = pyqtSignal(object)
     show_value = pyqtSignal()
-    auto_stopped = pyqtSignal()
+    auto_stopped = pyqtSignal(str,str)
 
     def __init__(self):
         super(MainWinController, self).__init__()
@@ -20,7 +21,7 @@ class MainWinController(QObject):
         self.mw = main_window()  # 主界面
         self.mbox = MessageBox(self.mw)  # 消息弹窗
         # 变量声明
-        self.cam = CameraManager.instance()# 相机实例
+        self.cam = CameraManager.instance()  # 相机实例
         self.current_device = None  # 当前设备
         self.is_handling = False  # 相机正在打开时控制提示
         # 数据处理
@@ -28,13 +29,10 @@ class MainWinController(QObject):
         self.worksheet = self.workbook.active
         self.value_in_col = []
         self.auto_started = None
-        self.workbook = None
-        self.worksheet = None
-        self.col = 1# 列的初始值
-        self.row = 1# 行的初始值
+        self.col = 1  # 列的初始值
+        self.row = 1  # 行的初始值
         self.file_path = '../output/luminance_avg.xlsx'
         self.time = 100  # 自动检测次数
-        self.values = []
         self.current_luminance = None
         self.init_ui()
         self.init_camera()
@@ -44,6 +42,7 @@ class MainWinController(QObject):
     # 初始化ui
     def init_ui(self):
         # mw组件初始化
+        self.mw.time_set.setValidator(QIntValidator(0, 1000))
         self.mw.auto_star.setDisabled(True)
         self.mw.photo_show.rawpix = RawPix(self.mw.photo_show)
         self.mw.open_cam.clicked.connect(self.open_camera)
@@ -60,7 +59,10 @@ class MainWinController(QObject):
         self.cam.devices_changed_connect(self.combox_refreshed)
 
     def set_time(self):
-        self.time = int(self.mw.time_set.text())
+        text = self.mw.time_set.text()
+        if text is None:
+            return
+        self.time = int(text)
 
     def video_show(self, image):
         self.mw.photo_show.rawpix.set_pixmap_with_cvimg(image)
@@ -68,13 +70,13 @@ class MainWinController(QObject):
     # 打开相机
     def open_camera(self):
         if self.is_handling:
-            self.mbox.warn("警告","请勿操作过快")
+            self.mbox.warn("警告", "请勿操作过快")
             return
         self.is_handling = True
         device_name = self.mw.cam_combox.currentText()
         exposure_time = "80000"
         if len(device_name) == 0:
-            self.mbox.info("提示","未发现相机")
+            self.mbox.info("提示", "未发现相机")
             self.is_handling = False
             return
         self.cam.open_camera(exposure_time, device_name, work=self.work_thread)
@@ -84,6 +86,7 @@ class MainWinController(QObject):
     def camera_opened(self):
         self.is_handling = False
         self.current_device = self.mw.cam_combox.currentText()
+        self.mw.cam_combox.setDisabled(True)
         self.mw.auto_star.setDisabled(False)
 
     def close_camera(self):
@@ -93,6 +96,7 @@ class MainWinController(QObject):
             return
         self.is_handling = True
         self.cam.close_camera(self.current_device)
+        self.mw.cam_combox.setDisabled(False)
         self.mw.photo_show.clear()
 
     # 相机关闭的参函数
@@ -109,7 +113,7 @@ class MainWinController(QObject):
 
     def auto_detect(self):
         if self.is_handling:
-            self.mbox.warn("警告","请勿操作过快")
+            self.mbox.warn("警告", "请勿操作过快")
             return
         self.is_handling = True
         self.auto_started = True
@@ -117,7 +121,7 @@ class MainWinController(QObject):
 
     # 相机工作
     def work_thread(self, device_name, data, size_info):
-        image = np.frombuffer(data,dtype=np.uint16)  # 将c_ubyte_Array转化成ndarray得到（3686400，）
+        image = np.frombuffer(data, dtype=np.uint16)  # 将c_ubyte_Array转化成ndarray得到（3686400，）
         image = image.reshape(size_info.nHeight, size_info.nWidth)  # 根据自己分辨率进行转化
         try:
             image, lumi_avg = detect_circle.detect(image)  # 亮度计算
@@ -129,30 +133,33 @@ class MainWinController(QObject):
         # 如果自动操作模式打开则记录数据
         if not self.auto_started:
             return
-        if self.row<=100:
-            self.worksheet.cell(row=self.row,column=self.col,value=lumi_avg)
+        if self.row <= self.time:
+            self.worksheet.cell(row=self.row, column=self.col, value=lumi_avg)
             self.value_in_col.append(lumi_avg)
             self.row += 1
             return
         # 写100个数据后
         # 写入平均值
-        self.self.worksheet.cell(row=self.row+1,column=self.col,value=np.around(np.array(self.value_in_col).mean(),2))
+        mean = format(np.array(self.value_in_col).mean(),'.2f')
+        print(mean)
+        self.worksheet.cell(row=self.row, column=self.col,
+                            value=mean)
         # 写入方差
-        self.self.worksheet.cell(row=self.row+2,column=self.col,value=np.around(np.array(self.value_in_col).var(),2))
+        var = format(np.array(self.value_in_col).var(),'.2f')
+        self.worksheet.cell(row=self.row + 1, column=self.col,
+                            value=var)
         # 还原
         self.workbook.save(self.file_path)
         self.value_in_col.clear()
         self.row = 1
         self.col += 1
         self.auto_started = False
-        self.auto_stopped.emit()
+        self.auto_stopped.emit(mean,var)
 
-    def refresh_ui(self):
+    def refresh_ui(self,mean,var):
+        self.mw.blur_value.setText(mean)
         self.mw.auto_star.setDisabled(False)
         self.is_handling = False
-
-
-
 
     # 相机列表跟新槽函数
     def combox_refreshed(self, camera_list):

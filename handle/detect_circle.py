@@ -1,3 +1,5 @@
+import datetime
+from time import sleep
 
 import cv2 as cv
 import numpy as np
@@ -22,33 +24,41 @@ def circle_detect_gray(img_gray, circle, r=150):
             else:
                 break
             y += 1
-    lumi_avg = format(np.array(all_value).mean(), '.2f')
+    lumi_avg = np.around(np.array(all_value).mean(), 2)
     print(lumi_avg)
     img_gray = cv.circle(img_gray, (int(circle[0]), int(circle[1])), r, (0, 0, 0), 10)
-    img_gray = cv.putText(img_gray, "Average:" + lumi_avg,
+    img_gray = cv.putText(img_gray, "Average:" + str(lumi_avg),
                           (int(circle[0]) + r + 200, int(circle[1])),
                           cv.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 8)
     return img_gray, lumi_avg
-
-
 
 
 def get_circle_center(img):
     '''获得圆心'''
     img = cv.normalize(img, dst=None, alpha=0, beta=65535,
                        norm_type=cv.NORM_MINMAX)
+
     gray = cv.convertScaleAbs(img, alpha=(255.0 / 65535.0))
     circles = cv.HoughCircles(gray, cv.HOUGH_GRADIENT, 1, 500, param1=100, param2=70, minRadius=200, maxRadius=500)
     if circles is None:
-        return False
+        return
+    print(circles)
     circle = circles[0][0]
     return circle
 
 
 def detect(img):
     '''包裹函数'''
+    current_time = datetime.datetime.now()
     rect = get_circle_center(img)
-    return circle_detect_gray(img, rect)
+    new_time = datetime.datetime.now()
+    print(new_time - current_time)
+    if rect is None:
+        raise Exception('no circle')
+    result = circle_detect_gray(img, rect)
+    if result is None:
+        raise Exception('average calculate error')
+    return result
 
 
 if __name__ == "__main__":
