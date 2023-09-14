@@ -84,6 +84,7 @@ class MainWinController(QObject):
 
     # 相机打开的槽函数
     def camera_opened(self):
+        print("相机已打开")
         self.is_handling = False
         self.current_device = self.mw.cam_combox.currentText()
         self.mw.cam_combox.setDisabled(True)
@@ -91,20 +92,20 @@ class MainWinController(QObject):
 
     def close_camera(self):
         if self.is_handling:
-            # TODO:异常的弹框和处理
-            print('请勿操作过快')
+            self.mbox.warn("警告","请勿操作过快")
             return
         self.is_handling = True
         self.cam.close_camera(self.current_device)
         self.mw.cam_combox.setDisabled(False)
-        self.mw.photo_show.clear()
 
     # 相机关闭的参函数
     def camera_closed(self):
+        print("相机已关闭")
         self.current_device = None
         self.is_handling = False
         self.mw.cam_combox.setDisabled(False)
         self.mw.auto_star.setDisabled(True)
+        self.mw.photo_show.clear()
 
     def refresh_combox(self):
         camera_list = self.cam.refresh_devices()

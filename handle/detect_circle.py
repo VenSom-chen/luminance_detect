@@ -51,11 +51,11 @@ def detect(img):
     '''包裹函数'''
     current_time = datetime.datetime.now()
     rect = get_circle_center(img)
-    new_time = datetime.datetime.now()
-    print(new_time - current_time)
     if rect is None:
         raise Exception('no circle')
     result = circle_detect_gray(img, rect)
+    new_time = datetime.datetime.now()
+    print(new_time - current_time)
     if result is None:
         raise Exception('average calculate error')
     return result
