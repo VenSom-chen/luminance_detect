@@ -50,8 +50,7 @@ def circle(img,center,r=150):
     '''掩膜计算均值'''
     mask = np.zeros_like(img,dtype=np.uint8)
     mask = cv.circle(mask,(int(center[0]),int(center[1])),r,255,-1)
-    mask_ = cv.resize(mask, None, fx=0.25, fy=0.25)
-    cv.imshow('', mask_)
+
     avg = cv.mean(img, mask=mask)[0]
     print(avg)
     return img, avg
