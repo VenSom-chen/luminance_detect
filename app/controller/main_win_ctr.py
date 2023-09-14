@@ -61,6 +61,7 @@ class MainWinController(QObject):
     def set_time(self):
         text = self.mw.time_set.text()
         if text is None:
+            self.time = 100
             return
         self.time = int(text)
 
@@ -159,8 +160,10 @@ class MainWinController(QObject):
 
     def refresh_ui(self,mean,var):
         self.mw.blur_value.setText(mean)
+        self.mw.var_value.setText(var)
         self.mw.auto_star.setDisabled(False)
         self.is_handling = False
+        self.mbox.info("提示","自动检测完成")
 
     # 相机列表跟新槽函数
     def combox_refreshed(self, camera_list):
