@@ -1,5 +1,4 @@
-import datetime
-from time import sleep
+import time
 
 import cv2 as cv
 import numpy as np
@@ -47,14 +46,26 @@ def get_circle_center(img):
     return circle
 
 
+def circle(img,center,r=150):
+    '''掩膜计算均值'''
+    mask = np.zeros_like(img,dtype=np.uint8)
+    mask = cv.circle(mask,(int(center[0]),int(center[1])),r,255,-1)
+    mask_ = cv.resize(mask, None, fx=0.25, fy=0.25)
+    cv.imshow('', mask_)
+    avg = cv.mean(img, mask=mask)[0]
+    print(avg)
+    return img, avg
+
+
 def detect(img):
     '''包裹函数'''
-    current_time = datetime.datetime.now()
+    current_time = time.time()
     rect = get_circle_center(img)
     if rect is None:
         raise Exception('no circle')
     result = circle_detect_gray(img, rect)
-    new_time = datetime.datetime.now()
+    # result = circle(img,rect)
+    new_time = time.time()
     print(new_time - current_time)
     if result is None:
         raise Exception('average calculate error')
