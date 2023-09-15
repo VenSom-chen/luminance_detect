@@ -36,9 +36,10 @@ def get_circle_center(img):
     '''获得圆心'''
     img = cv.normalize(img, dst=None, alpha=0, beta=65535,
                        norm_type=cv.NORM_MINMAX)
-
     gray = cv.convertScaleAbs(img, alpha=(255.0 / 65535.0))
-    circles = cv.HoughCircles(gray, cv.HOUGH_GRADIENT, 1, 500, param1=100, param2=70, minRadius=200, maxRadius=500)
+    ret, img_binary = cv.threshold(gray, 70, 255, cv.THRESH_BINARY)
+    circles = cv.HoughCircles(img_binary, cv.HOUGH_GRADIENT, 1, 500, param1=100, param2=30, minRadius=200,
+                              maxRadius=350)
     if circles is None:
         return
     print(circles)
@@ -46,14 +47,16 @@ def get_circle_center(img):
     return circle
 
 
-def circle(img,center,r=150):
+def lum_avg_calculator(img, center, r=150):
     '''掩膜计算均值'''
-    mask = np.zeros_like(img,dtype=np.uint8)
-    mask = cv.circle(mask,(int(center[0]),int(center[1])),r,255,-1)
-
-    avg = cv.mean(img, mask=mask)[0]
-    print(avg)
-    return img, avg
+    mask = np.zeros_like(img, dtype=np.uint8)  # 创建像素值均为0的模板
+    mask = cv.circle(mask, (int(center[0]), int(center[1])), r, 255, -1)  # 绘制像素值为255的圆形ROI区域
+    avg = cv.mean(img, mask=mask)[0]  # 计算ROI区域的像素平均值
+    img = cv.circle(img, (int(center[0]), int(center[1])), r, (0, 0, 0), 10)
+    img = cv.putText(img, "Average:" + str(avg)[:7],
+                     (int(center[0]) + r + 200, int(center[1])),
+                     cv.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 8)
+    return img, float(format(avg,'.2f'))
 
 
 def detect(img):
@@ -62,12 +65,11 @@ def detect(img):
     rect = get_circle_center(img)
     if rect is None:
         raise Exception('no circle')
-    result = circle_detect_gray(img, rect)
-    # result = circle(img,rect)
+    result = lum_avg_calculator(img, rect)
     new_time = time.time()
     print(new_time - current_time)
     if result is None:
-        raise Exception('average calculate error')
+        raise Exception("average calculate error")
     return result
 
 
