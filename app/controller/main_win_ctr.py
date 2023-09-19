@@ -49,7 +49,7 @@ class MainWinController(QObject):
         self.mw.close_cam.clicked.connect(self.close_camera)
         self.mw.refresh_list.clicked.connect(self.refresh_combox)
         self.mw.auto_star.clicked.connect(self.auto_detect)
-        self.mw.time_set.textChanged.connect(self.set_time)
+        self.mw.time_set.setText('100')
 
     # 初始化相机
     def init_camera(self):
@@ -58,12 +58,6 @@ class MainWinController(QObject):
         self.cam.exception_handle_connect(self.exception_handle)
         self.cam.devices_changed_connect(self.combox_refreshed)
 
-    def set_time(self):
-        text = self.mw.time_set.text()
-        if text is None:
-            self.time = 100
-            return
-        self.time = int(text)
 
     def video_show(self, image):
         self.mw.photo_show.rawpix.set_pixmap_with_cvimg(image)
@@ -75,9 +69,13 @@ class MainWinController(QObject):
             return
         self.is_handling = True
         device_name = self.mw.cam_combox.currentText()
-        exposure_time = "80000"
         if len(device_name) == 0:
             self.mbox.info("提示", "未发现相机")
+            self.is_handling = False
+            return
+        exposure_time = self.mw.exposure_time_edit.text()
+        if len(exposure_time) == 0:
+            self.mbox.info("提示", "未设置曝光时间")
             self.is_handling = False
             return
         self.cam.open_camera(exposure_time, device_name, work=self.work_thread)
@@ -120,6 +118,7 @@ class MainWinController(QObject):
         self.is_handling = True
         self.auto_started = True
         self.mw.auto_star.setDisabled(True)
+        self.time = self.mw.time_set.text()
 
     # 相机工作
     def work_thread(self, device_name, data, size_info):

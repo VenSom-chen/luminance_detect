@@ -79,7 +79,7 @@ class CameraManager(QObject, Singleton):
 
     # 相机操作异常
     def exception_handle_connect(self, slot):
-        self.worker.exception_raised.connect(slot)
+        self.worker.exception_raised.connect(slot, Qt.BlockingQueuedConnection)
 
     # 连接的可用相机发生改变
     def devices_changed_connect(self, slot):
@@ -179,7 +179,7 @@ class CameraManagerWork(QObject):
     # 工作循环
     def work(self):
         while True:
-            sleep(0.1)
+            sleep(0.01)
             self.detect()
             if self.current_camera is not None:
                 # 当前相机实时抓图
