@@ -34,13 +34,11 @@ def circle_detect_gray(img_gray, circle, r=150):
 
 def get_circle_center(img):
     '''获得圆心'''
-    img = cv.normalize(img, dst=None, alpha=0, beta=65535,
-                       norm_type=cv.NORM_MINMAX)
-    gray = cv.convertScaleAbs(img, alpha=(255.0 / 65535.0))
+    gray = cv.convertScaleAbs(img, alpha=(4095/65535))
     ret, img_binary = cv.threshold(gray, 0, 255, cv.THRESH_BINARY)
     img_b = cv.resize(img_binary, None, fx=0.25, fy=0.25)
     cv.imshow('',img_b)
-    circles = cv.HoughCircles(img_binary, cv.HOUGH_GRADIENT, 1, 500, param1=100, param2=25, minRadius=200,
+    circles = cv.HoughCircles(img_binary, cv.HOUGH_GRADIENT, 4, 500, param1=100, param2=300, minRadius=200,
                               maxRadius=350)
     if circles is None:
         return
@@ -77,7 +75,7 @@ def detect(img):
 
 
 if __name__ == "__main__":
-    data = np.fromfile('../test/Image_1_w4096_h2160_pMono12.raw', dtype=np.uint16)
+    data = np.fromfile('../test/Image_5_w4096_h2160_pMono12.raw', dtype=np.uint16)
     # 对数组重新排列
     width = 4096
     height = 2160
