@@ -38,6 +38,6 @@ class RawPix:
         return qimg
 
     def cvimg2qimg(self, image):
-        image = image*16
+        image = cv2.normalize(image,None,0,65535,cv2.NORM_MINMAX)
         height, width = image.shape  # 读取图像高宽深度
         return QImage(image.data, width, height, QImage.Format_Grayscale16)

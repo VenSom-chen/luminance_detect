@@ -118,7 +118,7 @@ class MainWinController(QObject):
         self.is_handling = True
         self.auto_started = True
         self.mw.auto_star.setDisabled(True)
-        self.time = self.mw.time_set.text()
+        self.time = int(self.mw.time_set.text())
 
     # 相机工作
     def work_thread(self, device_name, data, size_info):
