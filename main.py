@@ -8,4 +8,3 @@ app = QApplication(sys.argv)
 App = init.App()
 App.start()
 sys.exit(app.exec_())
-

@@ -2,10 +2,11 @@ import threading
 
 from PyQt5.QtWidgets import QMainWindow
 
+from app.gui.common.event import WinEvent
 from app.gui.ui.win import Ui_MainWindow
 
 
-class MainWindow(QMainWindow, Ui_MainWindow):
+class MainWindow(QMainWindow, Ui_MainWindow,WinEvent):
     _instance_lock = threading.Lock()
     _instance = None
 
