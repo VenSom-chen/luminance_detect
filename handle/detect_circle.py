@@ -2,50 +2,25 @@ import time
 
 import cv2 as cv
 import numpy as np
-
-
-def circle_detect_gray(img_gray, circle, r=150):
-    '''获取平均亮度'''
-    # rect:x1,y1,x2,y2
-    all_value = []
-    for x in (i for i in range(int(circle[0]) - r, int(circle[0]) + r)):
-        y = int(circle[1])
-        while True:
-            length = pow((x - circle[0]), 2) + pow((y - circle[1]), 2)
-            if length <= pow(r, 2):
-                if y - circle[1] == 0:
-                    # 直径上
-                    all_value.append(img_gray[y][x])
-                else:
-                    # 不在直径上
-                    all_value.append(img_gray[y][x])
-                    all_value.append(img_gray[2 * int(circle[1]) - y][x])
-            else:
-                break
-            y += 1
-    lumi_avg = np.around(np.array(all_value).mean(), 2)
-    print(lumi_avg)
-    img_gray = cv.circle(img_gray, (int(circle[0]), int(circle[1])), r, (0, 0, 0), 10)
-    img_gray = cv.putText(img_gray, "Average:" + str(lumi_avg),
-                          (int(circle[0]) + r + 200, int(circle[1])),
-                          cv.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 8)
-    return img_gray, lumi_avg
+import glob
 
 
 def get_circle_center(img):
     '''获得圆心'''
-    img= cv.convertScaleAbs(img, alpha=(255/4095))
-    ret, img_binary = cv.threshold(img, 255, 4095, cv.THRESH_OTSU)
-    print(ret)
-    img_b = cv.resize(img_binary, None, fx=0.25, fy=0.25)
-    # cv.imshow('',img_b)
-    circles = cv.HoughCircles(img_binary, cv.HOUGH_GRADIENT, 4, 500, param1=500, param2=200, minRadius=200,
-                              maxRadius=350)
+    img = cv.convertScaleAbs(img, alpha=(255 / 4095))
+    ret, img_binary = cv.threshold(img, 255, 4095 , cv.THRESH_BINARY+cv.THRESH_OTSU)
+
+    img_binary = cv.GaussianBlur(img_binary,(5,5),1,1)
+    img_canny = cv.Canny(img_binary,245,250)
+    img_ = cv.bitwise_not(img_canny)
+
+    circles = cv.HoughCircles(img_, cv.HOUGH_GRADIENT, 1, 500, param1=100, param2=15, minRadius=200,
+                              maxRadius=250)
     if circles is None:
         return
-    print(circles)
-    circle = circles[0][0]
-    return circle
+    center = circles[0][0]
+    print(center)
+    return center
 
 
 def lum_avg_calculator(img, center, r=150):
@@ -58,16 +33,16 @@ def lum_avg_calculator(img, center, r=150):
                      (int(center[0]) + r + 200, int(center[1])),
                      cv.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 8)
     print(avg)
-    return img, float(format(avg,'.2f'))
+    return img, float(format(avg, '.2f'))
 
 
 def detect(img):
     '''包裹函数'''
     current_time = time.time()
-    rect = get_circle_center(img)
-    if rect is None:
+    center = get_circle_center(img)
+    if center is None:
         raise Exception('no circle')
-    result = lum_avg_calculator(img, rect)
+    result = lum_avg_calculator(img, center)
     new_time = time.time()
     print(new_time - current_time)
     if result is None:
@@ -76,13 +51,15 @@ def detect(img):
 
 
 if __name__ == "__main__":
-    data = np.fromfile('../test/Image_1_w4096_h2160_pMono12.raw', dtype=np.uint16)
-    # 对数组重新排列
-    width = 4096
-    height = 2160
-    data = np.reshape(data, (height, width))
-    img, luminance = detect(data)
-    img = cv.convertScaleAbs(img, alpha=(255.0 / 4095.0))
-    img = cv.resize(img, None, fx=0.25, fy=0.25)
-    cv.imshow('img', img)
-    cv.waitKey()
+    filelist = glob.glob("../test/*.raw")
+    for filename in filelist:
+        data = np.fromfile(filename, dtype=np.uint16)
+        # 对数组重新排列
+        width = 4096
+        height = 2160
+        data = np.reshape(data, (height, width))
+        img, luminance = detect(data)
+        img = cv.convertScaleAbs(img, alpha=(255.0 / 4095.0))
+        img = cv.resize(img, None, fx=0.25, fy=0.25)
+        cv.imshow('img', img)
+        cv.waitKey()
